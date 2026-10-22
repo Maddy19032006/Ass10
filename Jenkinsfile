@@ -20,15 +20,15 @@ pipeline {
                 stage('Static HTML Analysis') {
                     steps {
                         echo 'Checking document structural integrity...'
-                        // Changed 'sh' to Windows findstr equivalent 'bat'
-                        bat 'findstr "<html>" index.html'
+                        // Added /I for case-insensitive verification scanning
+                        bat 'findstr /I "html" index.html'
                     }
                 }
                 stage('Docker Specifications Check') {
                     steps {
                         echo 'Validating runtime context parameters...'
-                        // Changed 'sh' to Windows findstr equivalent 'bat'
-                        bat 'findstr "FROM nginx" dockerfile'
+                        // Added /I for case-insensitive verification scanning
+                        bat 'findstr /I "FROM nginx" dockerfile'
                     }
                 }
             }
@@ -37,7 +37,6 @@ pipeline {
         stage('Build & Build Verification') {
             steps {
                 script {
-                    // Changed to 'bat' for Windows execution
                     bat "docker build -t ${IMAGE_NAME}:${VERSION} ."
                     bat "docker run --rm ${IMAGE_NAME}:${VERSION} nginx -t"
                 }
@@ -48,7 +47,6 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: "${DOCKER_REGISTRY_CREDENTIALS}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                        // Changed to 'bat' for Windows authentication sequence
                         bat "echo %PASS% | docker login -u %USER% --password-stdin"
                         bat "docker push ${IMAGE_NAME}:${VERSION}"
                     }
@@ -63,7 +61,6 @@ pipeline {
             steps {
                 script {
                     echo 'Deploying application to local cluster topology...'
-                    // Changed to 'bat' execution for cluster deployment tracking
                     withKubeConfig([credentialsId: 'kubernetes-config-id']) {
                         bat "kubectl apply -f deployment.yaml"
                         bat "kubectl rollout status deployment/industrial-monitor --timeout=60s"
@@ -75,7 +72,6 @@ pipeline {
     
     post {
         always {
-            // Changed to 'bat' for post action cleanup
             bat "docker logout"
         }
     }
