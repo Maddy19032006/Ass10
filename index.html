@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Industrial Equipment Monitoring Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        header { background: #2c3e50; color: white; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .version-badge { background: #27ae60; padding: 5px 10px; border-radius: 4px; font-weight: bold; }
+        .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card h3 { margin: 0 0 10px 0; color: #7f8c8d; font-size: 14px; text-transform: uppercase; }
+        .card .value { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .filters { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; }
+        select { padding: 8px; border-radius: 4px; border: 1px solid #bdc3c7; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+        th { background-color: #34495e; color: white; }
+        .status-running { color: green; font-weight: bold; }
+        .status-down { color: red; font-weight: bold; }
+        .status-maintenance { color: orange; font-weight: bold; }
+        .warning-row { background-color: #ffeaa7 !important; animation: pulse 2s infinite; }
+        .critical-action { color: #d63031; font-weight: bold; }
+        @keyframes pulse { 0% { background-color: #ffeaa7; } 50% { background-color: #ff7675; color: white; } 100% { background-color: #ffeaa7; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Equipment Monitoring System</h1>
+            <div id="app-version" class="version-badge">Version 1.0.0 (Stable)</div>
+        </header>
+
+        <!-- Analytics Widgets -->
+        <div class="analytics-grid">
+            <div class="card"><h3>Total Operational</h3><div class="value" id="count-operational">0</div></div>
+            <div class="card"><h3>Total Downtime (hrs)</h3><div class="value" id="total-downtime">0</div></div>
+            <div class="card"><h3>Highest Risk Unit</h3><div class="value" id="highest-risk">-</div></div>
+        </div>
+
+        <!-- Filter Component -->
+        <div class="filters">
+            <label>Filter by Unit:</label>
+            <select id="filter-unit" onchange="renderDashboard()">
+                <option value="All">All Units</option>
+                <option value="Assembly">Assembly</option>
+                <option value="Packaging">Packaging</option>
+                <option value="Molding">Molding</option>
+            </select>
+            <label>Filter by Status:</label>
+            <select id="filter-status" onchange="renderDashboard()">
+                <option value="All">All Statuses</option>
+                <option value="Running">Running</option>
+                <option value="Down">Down</option>
+                <option value="Maintenance">Maintenance</option>
+            </select>
+        </div>
+
+        <!-- Main Dashboard Table -->
+        <h2>Machine Fleet Operational Status</h2>
+        <table id="machine-table">
+            <thead>
+                <tr>
+                    <th>Machine ID</th>
+                    <th>Production Unit</th>
+                    <th>Operating Hours</th>
+                    <th>Temperature</th>
+                    <th>Vibration Level</th>
+                    <th>Production Output</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <!-- Predictive Maintenance Table -->
+        <h2>Predictive Maintenance Priority List</h2>
+        <table id="maintenance-table">
+            <thead>
+                <tr>
+                    <th>Machine ID</th>
+                    <th>Maintenance Due</th>
+                    <th>Risk Severity</th>
+                    <th>Recommended Action</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        // Simulated Industrial Machine Fleet Data
+        const machines = [
+            { id: "MAC-01", unit: "Assembly", hours: 1240, temp: 72, vibration: 4.2, output: 980, status: "Running", due: "2026-11-15", downtime: 12 },
+            { id: "MAC-02", unit: "Packaging", hours: 3100, temp: 85, vibration: 7.8, output: 0, status: "Down", due: "2026-10-24", downtime: 48 }, // Triggers alert (>80°C)
+            { id: "MAC-03", unit: "Molding", hours: 850, temp: 68, vibration: 3.1, output: 1200, status: "Running", due: "2026-12-02", downtime: 4 },
+            { id: "MAC-04", unit: "Assembly", hours: 4200, temp: 79, vibration: 9.2, output: 850, status: "Maintenance", due: "2026-10-23", downtime: 24 }, // Triggers alert (High Vibration)
+            { id: "MAC-05", unit: "Packaging", hours: 1950, temp: 65, vibration: 2.8, output: 940, status: "Running", due: "2026-11-30", downtime: 8 }
+        ];
+
+        function renderDashboard() {
+            const unitFilter = document.getElementById('filter-unit').value;
+            const statusFilter = document.getElementById('filter-status').value;
+            
+            const mainBody = document.querySelector('#machine-table tbody');
+            const maintBody = document.querySelector('#maintenance-table tbody');
+            
+            mainBody.innerHTML = '';
+            maintBody.innerHTML = '';
+
+            let operationalCount = 0;
+            let totalDowntimeHours = 0;
+            let highestRiskMachine = "-";
+            let maxVibration = 0;
+
+            machines.forEach(m => {
+                // Tracking Metrics
+                if(m.status === "Running") operationalCount++;
+                totalDowntimeHours += m.downtime;
+                if(m.vibration > maxVibration) {
+                    maxVibration = m.vibration;
+                    highestRiskMachine = m.id + " (" + m.unit + ")";
+                }
+
+                // Apply UI Selection Filters
+                if(unitFilter !== "All" && m.unit !== unitFilter) return;
+                if(statusFilter !== "All" && m.status !== statusFilter) return;
+
+                // Rule Engine: Alert Threshold checks (Temp > 80 or Vibration > 7.5)
+                const isAnomaly = (m.temp > 80 || m.vibration > 7.5);
+                const rowClass = isAnomaly ? 'warning-row' : '';
+
+                // 1. Populate Dashboard Grid Data
+                mainBody.innerHTML += `
+                    <tr class="${rowClass}">
+                        <td><b>${m.id}</b></td>
+                        <td>${m.unit}</td>
+                        <td>${m.hours} hrs</td>
+                        <td>${m.temp} °C</td>
+                        <td>${m.vibration} mm/s</td>
+                        <td>${m.output} units</td>
+                        <td class="status-${m.status.toLowerCase()}">${m.status}</td>
+                    </tr>
+                `;
+
+                // 2. Populate Predictive Maintenance Risk Panel
+                if(isAnomaly || m.status === "Down" || m.status === "Maintenance") {
+                    let severity = m.temp > 84 || m.vibration > 8.5 ? "CRITICAL" : "HIGH";
+                    let action = severity === "CRITICAL" ? "Emergency Shutoff & Structural Inspection" : "Schedule Component Calibration";
+                    
+                    maintBody.innerHTML += `
+                        <tr>
+                            <td><b>${m.id}</b></td>
+                            <td><u>${m.due}</u></td>
+                            <td class="critical-action">${severity}</td>
+                            <td>${action}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // Update Counter Components
+            document.getElementById('count-operational').innerText = operationalCount;
+            document.getElementById('total-downtime').innerText = totalDowntimeHours;
+            document.getElementById('highest-risk').innerText = highestRiskMachine;
+        }
+
+        // Run Initial Dashboard Setup
+        window.onload = renderDashboard;
+    </script>
+</body>
+</html>
