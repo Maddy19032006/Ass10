@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: industrial-monitor
+  labels:
+    app: industrial-monitor
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: industrial-monitor
+  template:
+    metadata:
+      labels:
+        app: industrial-monitor
+    spec:
+      containers:
+      - name: monitor-app
+        image: theatomicxm/industrial-monitor:v1.0.0
+        ports:
+        - containerPort: 80
+        imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: industrial-monitor-service
+spec:
+  type: NodePort
+  selector:
+    app: industrial-monitor
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
