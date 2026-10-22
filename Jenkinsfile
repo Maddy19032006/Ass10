@@ -20,13 +20,15 @@ pipeline {
                 stage('Static HTML Analysis') {
                     steps {
                         echo 'Checking document structural integrity...'
-                        sh 'grep -q "<html>" index.html'
+                        // Changed 'sh' to Windows findstr equivalent 'bat'
+                        bat 'findstr "<html>" index.html'
                     }
                 }
                 stage('Docker Specifications Check') {
                     steps {
                         echo 'Validating runtime context parameters...'
-                        sh 'grep -q "FROM nginx" Dockerfile'
+                        // Changed 'sh' to Windows findstr equivalent 'bat'
+                        bat 'findstr "FROM nginx" dockerfile'
                     }
                 }
             }
@@ -35,11 +37,9 @@ pipeline {
         stage('Build & Build Verification') {
             steps {
                 script {
-                    // Build container image locally
-                    sh "docker build -t ${IMAGE_NAME}:${VERSION} ."
-                    
-                    // Verify the container runs and returns a valid code
-                    sh "docker run --rm ${IMAGE_NAME}:${VERSION} nginx -t"
+                    // Changed to 'bat' for Windows execution
+                    bat "docker build -t ${IMAGE_NAME}:${VERSION} ."
+                    bat "docker run --rm ${IMAGE_NAME}:${VERSION} nginx -t"
                 }
             }
         }
@@ -47,10 +47,10 @@ pipeline {
         stage('Publish Image') {
             steps {
                 script {
-                    // Authenticate and push image to Registry storage
                     withCredentials([usernamePassword(credentialsId: "${DOCKER_REGISTRY_CREDENTIALS}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-                        sh "echo ${PASS} | docker login -u ${USER} --password-stdin"
-                        sh "docker push ${IMAGE_NAME}:${VERSION}"
+                        // Changed to 'bat' for Windows authentication sequence
+                        bat "echo %PASS% | docker login -u %USER% --password-stdin"
+                        bat "docker push ${IMAGE_NAME}:${VERSION}"
                     }
                 }
             }
@@ -63,12 +63,10 @@ pipeline {
             steps {
                 script {
                     echo 'Deploying application to local cluster topology...'
-                    // Execute local cluster apply configuration
+                    // Changed to 'bat' execution for cluster deployment tracking
                     withKubeConfig([credentialsId: 'kubernetes-config-id']) {
-                        sh "kubectl apply -f deployment.yaml"
-                        
-                        // Verification validation checks
-                        sh "kubectl rollout status deployment/industrial-monitor --timeout=60s"
+                        bat "kubectl apply -f deployment.yaml"
+                        bat "kubectl rollout status deployment/industrial-monitor --timeout=60s"
                     }
                 }
             }
@@ -77,7 +75,8 @@ pipeline {
     
     post {
         always {
-            sh "docker logout"
+            // Changed to 'bat' for post action cleanup
+            bat "docker logout"
         }
     }
 }
